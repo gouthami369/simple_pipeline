@@ -12,7 +12,7 @@ typedef struct Register
 } Register;
 
 typedef struct {
-    char *opcode;
+    int opcode;
     int rd;
     int rs1;
     int rs2;

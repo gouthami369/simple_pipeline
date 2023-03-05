@@ -9,6 +9,7 @@
 
 #define REG_COUNT 128
 char* RET = "ret";
+char* operands[7] = {"set", "add", "sub", "mul", "div", "load", "ret"};
 
 static void clear(CPU* cpu) {
     cpu->fetch.imm1 = 0;
@@ -18,6 +19,14 @@ static void clear(CPU* cpu) {
     cpu->fetch.rd = 0;
 }
 
+static int get_int_value_from_opcode (char* opcode) {
+    for (size_t i = 0; i < sizeof(operands) / sizeof(operands[0]); i++) {
+        if (strcmp(opcode, operands[i]) == 0) {
+            return i;
+        }
+    }
+    return 6;
+}
 static void fetch(CPU* cpu) {
     if (cpu->fetch.has_instr) {
         char instr[256];
@@ -26,7 +35,7 @@ static void fetch(CPU* cpu) {
         printf("IF                    :%s", cpu->fetch.instr);
         strtok(instr, " ");
         token = strtok(NULL, " ");
-        cpu->fetch.opcode = token;
+        cpu->fetch.opcode = get_int_value_from_opcode(token);
         token = strtok(NULL, " ");
         if(token)
             cpu->fetch.rd = atoi(token + 1);
@@ -49,11 +58,10 @@ static void fetch(CPU* cpu) {
         if (!cpu->stall) {
             cpu->decode = cpu->fetch;
         }
-        printf("%d", *cpu->fetch.opcode == *RET);
-        if (*cpu->fetch.opcode == *RET) {
+        if (cpu->fetch.opcode == 6) {
             cpu->fetch.has_instr = false;
         }
-//        printf("   opcode: %s", cpu->fetch.opcode);
+//        printf("   opcode: %d", cpu->fetch.opcode);
 //        printf("   des: %d", cpu->fetch.rd);
 //        printf("   src_reg1 : %d", cpu->fetch.rs1);
 //        printf("   src_reg2 : %d", cpu->fetch.rs2);
@@ -66,12 +74,29 @@ static void fetch(CPU* cpu) {
 
 static void decode(CPU* cpu)
 {
-    int executeNextInstr = true;
-    if (cpu->decode.has_instr)
+    int executeNextInstr = false;
+    if (cpu->decode.has_instr == 1)
     {
         printf("ID                    :%s", cpu->decode.instr);
-        printf("%s", cpu->decode.opcode);
-        printf("%d", *cpu->decode.opcode == *RET);
+        //char* operands[7] = {"set", "add", "sub", "mul", "div", "load", "ret"};
+        switch (cpu->decode.opcode) {
+            case 0:
+                if (cpu->decode.rs1!=0 && cpu->regs[cpu->decode.rs1].is_writing==true)
+                    executeNextInstr = true;
+                break;
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+                if ((cpu->decode.rs1!=0 && cpu->regs[cpu->decode.rs1].is_writing==true) &&
+                    (cpu->decode.rs2!=0 && cpu->regs[cpu->decode.rs2].is_writing==true))
+                    executeNextInstr = true;
+                break;
+            case 5:
+            case 6:
+                break;
+
+        }
 
         if (executeNextInstr) {
             cpu->instr_analyze = cpu->decode;
@@ -169,8 +194,7 @@ static bool writeback(CPU* cpu)
     {
         printf("WB                    :%s", cpu->writeback.instr);
         cpu->writeback.has_instr = false;
-        printf("%d", *cpu->writeback.opcode == *RET);
-        if (*cpu->writeback.opcode == *RET) {
+        if (cpu->writeback.opcode==6) {
             return 1; }
     }
     return 0; //default value
@@ -219,7 +243,7 @@ void print_registers(CPU *cpu){
 int CPU_run(CPU* cpu, FILE *fp)
 {
 //    Register Register[REG_FILE_SIZE] = {{0, 1}}; // Initialize register file with 0 and valid status
-    while (cpu->clock_cycle<=22) {
+    while (1) {
         if (!cpu->stall) {
             fgets(cpu->fetch.instr, sizeof(cpu->fetch.instr), fp);
         }
